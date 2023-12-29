@@ -1,0 +1,29 @@
+stages:
+  - build
+  - delivery
+
+image: docker:24.0.6-cli
+services:
+  - docker:dind
+
+variables:
+  REGISTRY_URL: "registry.gitlab.com/capfi-technology/capfi-academy/all/capfi-stock-exchange"
+
+before_script:
+  - export BRANCH_NAME=$(echo "$CI_COMMIT_REF_NAME" | tr -cd '[:alnum:]')
+  - export TIMESTAMP=$(echo "$CI_PIPELINE_CREATED_AT" | tr ':' '-')
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+build:app:
+  stage: build
+  script:
+    - docker build -t "$REGISTRY_URL:$BRANCH_NAME-$TIMESTAMP" .
+    - docker push "$REGISTRY_URL:$BRANCH_NAME-$TIMESTAMP"
+
+delivery:app:
+   stage: delivery
+   only: 
+    - develop
+   script: 
+    - docker tag "$REGISTRY_URL:$BRANCH_NAME-$TIMESTAMP" "$REGISTRY_URL:preprod"
+    - docker push "$REGISTRY_URL:preprod"
